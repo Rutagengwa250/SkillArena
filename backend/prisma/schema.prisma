@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  isActive    Boolean  @default(true)
+  lastLoginAt DateTime?
+  isVerified  Boolean  @default(false)
+  wallet       Wallet?
+  matches      MatchParticipant[]
+  moves        GameMove[]
+  transactions WalletTransaction[]
+  wins         GameResult[]        @relation("WinnerRelation")
+  
+}
+model Wallet {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  balance   Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user         User                @relation(fields: [userId], references: [id])
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id        Int      @id @default(autoincrement())
+  walletId  Int
+  amount    Int
+  type      String // STAKE | WIN | PLATFORM_FEE | REFUND
+  reference String // match:<id>
+  createdAt DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+  User   User?  @relation(fields: [userId], references: [id])
+  userId Int?
+}
+
+model Match {
+  id        Int      @id @default(autoincrement())
+  stake     Int
+  status    String
+  matchCode String   @unique
+  paidOut   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  creatorId Int  
+  matchType String
+
+  participants MatchParticipant[]
+  gameState    GameState?
+  gameResult   GameResult?
+  moves        GameMove[]
+  
+}
+
+model MatchParticipant {
+  matchId Int
+  userId  Int
+  symbol  String
+
+  match Match @relation(fields: [matchId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+
+  @@id([matchId, userId])
+}
+
+model GameState {
+  id        Int      @id @default(autoincrement())
+  matchId   Int      @unique
+  board     String
+  turn      String
+  status    String
+  updatedAt DateTime @updatedAt
+
+  match Match @relation(fields: [matchId], references: [id])
+}
+
+model GameMove {
+  id        Int      @id @default(autoincrement())
+  matchId   Int
+  userId    Int
+  position  Int
+  symbol    String
+  createdAt DateTime @default(now())
+
+  match Match @relation(fields: [matchId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
+}
+
+model GameResult {
+  id        Int      @id @default(autoincrement())
+  matchId   Int      @unique
+  winnerId  Int?
+  result    String
+  createdAt DateTime @default(now())
+
+  match  Match @relation(fields: [matchId], references: [id])
+  winner User? @relation("WinnerRelation", fields: [winnerId], references: [id])
+}
+model Admin {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  role      String   @default("admin") // admin, super_admin
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  logs AdminLog[]
+}
+
+model AdminLog {
+  id        Int      @id @default(autoincrement())
+  adminId   Int
+  action    String
+  details   Json
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  admin Admin @relation(fields: [adminId], references: [id])
+}
